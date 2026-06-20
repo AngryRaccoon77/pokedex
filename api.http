@@ -1,0 +1,100 @@
+@baseUrl = http://localhost:8085
+
+### Health check
+GET {{baseUrl}}/health
+Accept: application/json
+
+### List pokemon (empty or with seed)
+GET {{baseUrl}}/api/v1/pokemon
+Accept: application/json
+
+### List pokemon filtered by type
+GET {{baseUrl}}/api/v1/pokemon?type=fire
+Accept: application/json
+
+### List pokemon filtered by catchable
+GET {{baseUrl}}/api/v1/pokemon?catchable=true
+Accept: application/json
+
+### List pokemon filtered by search (name or description)
+GET {{baseUrl}}/api/v1/pokemon?search=pika
+Accept: application/json
+
+### Create pokemon (valid) — response должен содержать непустой type
+# @name createPokemon
+POST {{baseUrl}}/api/v1/pokemon
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Pikachu",
+  "description": "Electric mouse Pokemon, evolves from Pichu",
+  "power": 55,
+  "type": "electric"
+}
+
+### Get created pokemon by ID
+GET {{baseUrl}}/api/v1/pokemon/{{createPokemon.response.body.$.id}}
+Accept: application/json
+
+### Partial update created pokemon (power + catchable)
+PUT {{baseUrl}}/api/v1/pokemon/{{createPokemon.response.body.$.id}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "power": 90,
+  "catchable": false
+}
+
+### Validation error: name is required (400)
+POST {{baseUrl}}/api/v1/pokemon
+Content-Type: application/json
+Accept: application/json
+
+{
+  "description": "Invalid pokemon without a name",
+  "power": 10,
+  "type": "normal"
+}
+
+### Validation error: power must be non-negative (400)
+POST {{baseUrl}}/api/v1/pokemon
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Negapow",
+  "power": -5,
+  "type": "normal"
+}
+
+### Validation error: invalid type (400)
+POST {{baseUrl}}/api/v1/pokemon
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Mysterymon",
+  "power": 10,
+  "type": "unobtainium"
+}
+
+### Duplicate name error (409 Conflict)
+POST {{baseUrl}}/api/v1/pokemon
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Pikachu",
+  "power": 55,
+  "type": "electric"
+}
+
+### Delete created pokemon
+DELETE {{baseUrl}}/api/v1/pokemon/{{createPokemon.response.body.$.id}}
+Accept: application/json
+
+### Get deleted pokemon (should return 404 Not Found)
+GET {{baseUrl}}/api/v1/pokemon/{{createPokemon.response.body.$.id}}
+Accept: application/json

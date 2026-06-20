@@ -111,11 +111,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	startupFailed := false
 	select {
 	case sig := <-quit:
 		logger.Info("shutdown signal received", slog.String("signal", sig.String()))
 	case err := <-serverErr:
 		logger.Error("HTTP server failed to start", slog.String("error", err.Error()))
+		startupFailed = true
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -123,6 +125,11 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("forced server shutdown", slog.String("error", err.Error()))
+	}
+
+	if startupFailed {
+		logger.Error("application stopped due to server startup failure")
+		os.Exit(1)
 	}
 
 	logger.Info("application stopped gracefully")

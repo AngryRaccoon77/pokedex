@@ -40,9 +40,15 @@ func (h *PokemonHandler) Routes() chi.Router {
 
 // GET /pokemon?catchable=true&type=fire&search=char&limit=20&offset=0
 func (h *PokemonHandler) List(w http.ResponseWriter, r *http.Request) {
+	typeParam := r.URL.Query().Get("type")
+	if typeParam != "" && !domain.IsValidType(typeParam) {
+		h.handleError(w, domain.ErrInvalidType)
+		return
+	}
+
 	filter := domain.PokemonFilter{
 		CatchableOnly: r.URL.Query().Get("catchable") == "true",
-		Type:          r.URL.Query().Get("type"),
+		Type:          typeParam,
 		Search:        r.URL.Query().Get("search"),
 		Limit:         queryInt(r, "limit", 20),
 		Offset:        queryInt(r, "offset", 0),
@@ -134,13 +140,15 @@ func (h *PokemonHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *PokemonHandler) handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
-		respondError(w, http.StatusNotFound, err.Error())
+		respondError(w, http.StatusNotFound, domain.ErrNotFound.Error())
 	case errors.Is(err, domain.ErrDuplicateName):
-		respondError(w, http.StatusConflict, err.Error())
-	case errors.Is(err, domain.ErrNameRequired),
-		errors.Is(err, domain.ErrNegativePower),
-		errors.Is(err, domain.ErrInvalidType):
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, http.StatusConflict, domain.ErrDuplicateName.Error())
+	case errors.Is(err, domain.ErrNameRequired):
+		respondError(w, http.StatusBadRequest, domain.ErrNameRequired.Error())
+	case errors.Is(err, domain.ErrNegativePower):
+		respondError(w, http.StatusBadRequest, domain.ErrNegativePower.Error())
+	case errors.Is(err, domain.ErrInvalidType):
+		respondError(w, http.StatusBadRequest, domain.ErrInvalidType.Error())
 	default:
 		h.logger.Error("internal error", slog.String("error", err.Error()))
 		respondError(w, http.StatusInternalServerError, "internal server error")

@@ -22,6 +22,11 @@ func TestCreatePokemonInput_Validate(t *testing.T) {
 			wantErr: ErrNameRequired,
 		},
 		{
+			name:    "zero power is valid",
+			input:   CreatePokemonInput{Name: "Magnemite", Power: 0, Type: "steel"},
+			wantErr: nil,
+		},
+		{
 			name:    "negative power",
 			input:   CreatePokemonInput{Name: "Pikachu", Power: -1, Type: "electric"},
 			wantErr: ErrNegativePower,
@@ -48,6 +53,7 @@ func TestUpdatePokemonInput_Validate(t *testing.T) {
 	name := "Raichu"
 	negPower := -5
 	power := 90
+	zeroPower := 0
 	invalidType := "lightning"
 	validType := "electric"
 	catchable := false
@@ -71,6 +77,11 @@ func TestUpdatePokemonInput_Validate(t *testing.T) {
 			name:    "empty name set",
 			input:   UpdatePokemonInput{Name: &emptyName},
 			wantErr: ErrNameRequired,
+		},
+		{
+			name:    "zero power set is valid",
+			input:   UpdatePokemonInput{Power: &zeroPower},
+			wantErr: nil,
 		},
 		{
 			name:    "negative power set",
@@ -110,6 +121,22 @@ func TestIsValidType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsValidType(tt.typ); got != tt.want {
 				t.Errorf("IsValidType(%q) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsValidType_AllValidTypes(t *testing.T) {
+	allValidTypes := []string{
+		"fire", "water", "grass", "electric", "psychic", "normal",
+		"ice", "dragon", "dark", "fairy", "fighting", "poison",
+		"ground", "flying", "bug", "rock", "ghost", "steel",
+	}
+
+	for _, typ := range allValidTypes {
+		t.Run(typ, func(t *testing.T) {
+			if !IsValidType(typ) {
+				t.Errorf("IsValidType(%q) = false, want true", typ)
 			}
 		})
 	}

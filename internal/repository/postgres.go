@@ -140,7 +140,7 @@ func (r *postgresPokemonRepo) Update(ctx context.Context, id int64, input domain
 	if err != nil {
 		return domain.Pokemon{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Проверяем, что запись существует
 	var exists bool

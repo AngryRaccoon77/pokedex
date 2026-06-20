@@ -36,7 +36,23 @@ HTTP → handlers → service → repository (pgx) → PostgreSQL
    cp .env.example .env
    ```
 
-   Под Windows/PowerShell переменные из `.env` подхватываются автоматически приложением при старте (через `internal/config`), отдельно `source .env` делать не нужно — главное, чтобы файл `.env` лежал в корне проекта.
+   `internal/config` читает переменные окружения напрямую (`os.LookupEnv`/`os.Getenv`) — `.env` **не подхватывается автоматически**, файла-загрузчика (`godotenv` и т.п.) в проекте нет. Перед запуском нужно явно экспортировать переменные в окружение процесса, например:
+
+   ```bash
+   set -a; source .env; set +a   # bash/zsh
+   ```
+
+   ```powershell
+   Get-Content .env | ForEach-Object {
+     if ($_ -match '^\s*([^#=]+)=(.*)$') {
+       [System.Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim())
+     }
+   }   # PowerShell
+   ```
+
+   Либо запускать через `docker compose run`/любой раннер, который сам читает `.env` в окружение контейнера. Обязательные переменные без значений по умолчанию — `PG_USER`, `PG_PASSWORD`, `PG_DATABASE`; если хотя бы одна не задана, `config.MustLoad()` паникует при старте. Остальные переменные (`SERVER_PORT`, `PG_HOST`, `PG_PORT`, `PG_SSLMODE`, таймауты и т.д.) имеют значения по умолчанию в `config.go`.
+
+   Порт Postgres на хосте по умолчанию — `5433`, а не стандартный `5432`: во время разработки `5432` был занят другим локальным контейнером Postgres. Если у вас порт `5432` свободен, можно поменять маппинг обратно в `docker-compose.yml`/`.env`/`.env.example`.
 
 3. Запустить сервер:
 
@@ -53,7 +69,7 @@ HTTP → handlers → service → repository (pgx) → PostgreSQL
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/health` | проверка живости сервиса |
-| `GET` | `/api/v1/pokemon` | список покемонов; query-параметры: `catchable` (bool), `type` (enum), `search` (подстрока по `name`/`description`), `limit`, `offset` |
+| `GET` | `/api/v1/pokemon` | список покемонов; query-параметры: `catchable` (bool), `type` (enum), `search` (подстрока по `name`/`description`), `limit` (по умолчанию 20, максимум 100), `offset` (по умолчанию 0) |
 | `GET` | `/api/v1/pokemon/{id}` | получить покемона по ID |
 | `POST` | `/api/v1/pokemon` | создать покемона |
 | `PUT` | `/api/v1/pokemon/{id}` | частично обновить покемона |

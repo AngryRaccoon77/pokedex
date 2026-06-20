@@ -4,6 +4,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,7 @@ type CreatePokemonInput struct {
 }
 
 func (c CreatePokemonInput) Validate() error {
-	if c.Name == "" {
+	if strings.TrimSpace(c.Name) == "" {
 		return ErrNameRequired
 	}
 	if c.Power < 0 {
@@ -51,7 +52,7 @@ type UpdatePokemonInput struct {
 }
 
 func (u UpdatePokemonInput) Validate() error {
-	if u.Name != nil && *u.Name == "" {
+	if u.Name != nil && strings.TrimSpace(*u.Name) == "" {
 		return ErrNameRequired
 	}
 	if u.Power != nil && *u.Power < 0 {

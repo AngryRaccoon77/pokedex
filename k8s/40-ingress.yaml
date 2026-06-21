@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pokedex-api
+  namespace: pokedex
+spec:
+  ingressClassName: nginx
+  rules:
+    # nip.io резолвит pokedex.127.0.0.1.nip.io -> 127.0.0.1 без правки /etc/hosts.
+    # kind пробрасывает 80 порт на хост (extraPortMappings в kind-config.yaml).
+    - host: pokedex.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pokedex-api
+                port:
+                  number: 80

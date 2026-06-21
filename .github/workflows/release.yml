@@ -1,0 +1,101 @@
+name: release
+
+# Триггер ТОЛЬКО по git-тегам vX.Y.Z — ровно как требует задание.
+# По push в main ничего не собирается, поэтому коммит-патч манифеста не зацикливает CI.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        # refs/tags/v1.2.3 -> 1.2.3
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute image name
+        id: image
+        # ghcr.io требует lowercase repo path, а github.repository_owner
+        # сохраняет регистр логина (AngryRaccoon77) — приводим к нижнему.
+        run: |
+          owner_lc=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${owner_lc}/pokedex-api" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  update-manifest:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # нужно, чтобы закоммитить патч манифеста обратно в main
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch image tag in deployment manifest
+        env:
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
+        run: |
+          set -euo pipefail
+          # Обновляем тег образа в k8s/20-deployment.yaml.
+          # Меняем и плейсхолдер первого деплоя, и любой ранее проставленный тег.
+          sed -i -E \
+            "s#image: ghcr.io/[^/]+/pokedex-api:.*#image: ${IMAGE}:${VERSION}#" \
+            k8s/20-deployment.yaml
+          echo "---- patched manifest ----"
+          grep "image:" k8s/20-deployment.yaml
+
+      - name: Commit & push manifest bump
+        env:
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No manifest changes, nothing to commit."
+            exit 0
+          fi
+          git add k8s/20-deployment.yaml
+          # [skip ci] — на всякий случай; push в main и так не триггерит этот workflow,
+          # но это страховка от любых будущих workflow на push.
+          git commit -m "chore: deploy pokedex ${VERSION} [skip ci]"
+          git push origin HEAD:main

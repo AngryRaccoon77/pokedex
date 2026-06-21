@@ -1,0 +1,21 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    # Метка нужна официальному kind-манифесту ingress-nginx
+    # (он шедулит контроллер на ноду с этой меткой).
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    # Пробрасываем 80/443 контейнера-ноды на localhost,
+    # чтобы pokedex.127.0.0.1.nip.io резолвился и достукивался до ingress.
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP

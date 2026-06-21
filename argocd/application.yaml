@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pokedex
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AngryRaccoon77/pokedex.git
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pokedex
+  syncPolicy:
+    automated:
+      prune: true      # удаляет ресурсы, исчезнувшие из git
+      selfHeal: true   # откатывает ручные изменения в кластере к состоянию git
+    syncOptions:
+      - CreateNamespace=true

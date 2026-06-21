@@ -85,6 +85,20 @@ HTTP → handlers → service → repository (pgx) → PostgreSQL
 | отрицательное `power` | 400 |
 | невалидный `type` | 400 |
 
+## CI/CD (курсовая по инфраструктуре)
+
+Пайплайн доставки в Kubernetes: GitHub Actions собирает образ по git-тегу
+и публикует его в GHCR, ArgoCD (pull-based GitOps) внутри кластера сам
+подтягивает изменения из `k8s/`. Подробный разбор требований, схема
+архитектуры и пошаговый запуск стенда — в [`docs/cicd.md`](./docs/cicd.md).
+
+Файлы пайплайна:
+- [`Dockerfile`](./Dockerfile) — сборка образа приложения
+- [`kind-config.yaml`](./kind-config.yaml) — локальный кластер kind с пробросом 80/443
+- [`k8s/`](./k8s) — манифесты (namespace, secret, Postgres, Deployment, Service, Ingress); за каталогом следит ArgoCD
+- [`argocd/application.yaml`](./argocd/application.yaml) — ArgoCD `Application` (применяется один раз руками)
+- [`.github/workflows/release.yml`](./.github/workflows/release.yml) — CI: сборка по тегу `v*.*.*` + патч тега образа в манифесте
+
 ## Тестирование
 
 - **Ручная проверка API**: сценарии в [`api.http`](./api.http) (health, list с фильтрами, create/get/update/delete, ошибочные кейсы) — можно прогнать через REST Client в VS Code/JetBrains HTTP Client.

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pokedex-api
+  namespace: pokedex
+  labels:
+    app: pokedex-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pokedex-api
+  template:
+    metadata:
+      labels:
+        app: pokedex-api
+    spec:
+      initContainers:
+        # Ждём, пока Postgres начнёт принимать соединения.
+        # Миграции (goose) приложение накатывает само при старте
+        # (cmd/server/main.go: runMigrations, встроенные .sql из migrations/),
+        # отдельный шаг/образ для них не нужен.
+        - name: wait-for-db
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U postgres; do
+                echo "waiting for postgres..."; sleep 2;
+              done
+      containers:
+        - name: pokedex-api
+          image: ghcr.io/angryraccoon77/pokedex-api:latest # <-- патчится CI
+          ports:
+            - containerPort: 8085
+          env:
+            - name: SERVER_PORT
+              value: "8085"
+            - name: PG_HOST
+              value: postgres
+            - name: PG_PORT
+              value: "5432"
+            - name: PG_SSLMODE
+              value: disable
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pokedex-db
+                  key: POSTGRES_USER
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pokedex-db
+                  key: POSTGRES_PASSWORD
+            - name: PG_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: pokedex-db
+                  key: POSTGRES_DB
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8085
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8085
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi

@@ -31,7 +31,7 @@ spec:
               done
       containers:
         - name: pokedex-api
-          image: ghcr.io/angryraccoon77/pokedex-api:latest # <-- патчится CI
+          image: ghcr.io/angryraccoon77/pokedex-api:1.0.0
           ports:
             - containerPort: 8085
           env:
